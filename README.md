@@ -4,6 +4,8 @@ An interactive 3D golf swing viewer for learning the swing plane and the P1–P1
 
 Built with [Three.js](https://threejs.org/). Single HTML file, no build step.
 
+**▶ Try it live: [deepuasok.github.io/swing-plane-lab](https://deepuasok.github.io/swing-plane-lab/)**
+
 ![Swing Plane Lab](docs/screenshot.png)
 
 ## Run it
