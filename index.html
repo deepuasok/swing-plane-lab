@@ -993,52 +993,75 @@ else buildMarkers();
    fog-free tube revealed progressively — TV shot-tracer style. */
 const T_IMPACT = KEYS.find(k => k.p === "P7").t;
 const ballStart = CFG.ball.clone().add(V3(0.075, 0, 0));
-const FLIGHT = { carry: 95, apex: 9, drawOut: 2.2, drawCurve: 5.0 };
+
+/* Integrated driver flight: gravity + quadratic drag + lift (backspin) +
+   side force (draw spin), then restitution bounces and friction rollout.
+   Constants tuned for ~107m carry, 10.5m apex, 27° descent, baby draw
+   (0.9m out right, 2.7m finish left). u maps linearly to physical time,
+   so the ball leaves the face FAST and decelerates like a real drive. */
+const FLIGHT_PTS = (() => {
+  const g = 9.81, dt = 0.004, G = 0.03;
+  let kd = 0.0060, kl = 0.0028, ks = 0.0011;
+  const e = 0.38, mu = 0.55, th = THREE.MathUtils.degToRad(15);
+  let x = ballStart.x, y = ballStart.y, z = ballStart.z;
+  let vx = 46 * Math.cos(th), vy = 46 * Math.sin(th), vz = 2.0;
+  const pts = [ballStart.clone()];
+  let t = 0, step = 0;
+  while (t < 14) {
+    const sp = Math.hypot(vx, vy, vz);
+    vx += (-kd * sp * vx) * dt;
+    vy += (-g - kd * sp * vy + kl * sp * sp) * dt;
+    vz += (-kd * sp * vz - ks * sp * sp) * dt;
+    x += vx * dt; y += vy * dt; z += vz * dt;
+    if (y <= G && vy < 0) {
+      y = G; vy = -vy * e; vx *= mu; vz *= mu;
+      kl = 0; ks = 0;                 // spin is spent at first touch
+      if (vy < 1.2) vy = 0;
+    }
+    if (y <= G + 0.001 && vy === 0) { // rollout
+      vx *= 1 - 1.4 * dt; vz *= 1 - 1.4 * dt;
+      if (Math.hypot(vx, vz) < 0.4) break;
+    }
+    t += dt;
+    if (++step % 5 === 0) pts.push(V3(x, y, z)); // sample every 20ms
+  }
+  return pts;
+})();
 
 function flightPos(u, out) {
   out = out || V3();
-  const x0 = ballStart.x, y0 = ballStart.y, z0 = ballStart.z, G = 0.03;
-  if (u <= 0) return out.set(x0, y0, z0);
-  if (u < 0.72) {            // carry
-    const sc = u / 0.72;
-    return out.set(
-      x0 + FLIGHT.carry * sc,
-      Math.max(y0 + 4 * FLIGHT.apex * sc * (1 - sc), G),
-      z0 + FLIGHT.drawOut * sc - FLIGHT.drawCurve * sc * sc);
-  }
-  const zEnd = z0 + FLIGHT.drawOut - FLIGHT.drawCurve;
-  if (u < 0.82) {            // first bounce
-    const sc = (u - 0.72) / 0.10;
-    return out.set(x0 + FLIGHT.carry + 8 * sc, G + 4 * 1.6 * sc * (1 - sc), zEnd - 0.15 * sc);
-  }
-  if (u < 0.90) {            // second bounce
-    const sc = (u - 0.82) / 0.08;
-    return out.set(x0 + FLIGHT.carry + 8 + 5 * sc, G + 4 * 0.45 * sc * (1 - sc), zEnd - 0.15 - 0.1 * sc);
-  }
-  const sc = (u - 0.90) / 0.10;  // rollout, easing to rest
-  const e = 1 - (1 - sc) * (1 - sc);
-  return out.set(x0 + FLIGHT.carry + 13 + 5 * e, G, zEnd - 0.25 - 0.05 * e);
+  if (u <= 0) return out.copy(ballStart);
+  const f = Math.min(u, 1) * (FLIGHT_PTS.length - 1);
+  const i = Math.floor(f), a = FLIGHT_PTS[i], b = FLIGHT_PTS[Math.min(i + 1, FLIGHT_PTS.length - 1)];
+  return out.copy(a).lerp(b, f - i);
 }
 
 const TRACE_SEGS = 240;
 const tracer = (() => {
-  const pts = Array.from({ length: TRACE_SEGS + 1 }, (_, i) => flightPos(i / TRACE_SEGS));
-  const curve = new THREE.CatmullRomCurve3(pts);
+  const curve = new THREE.CatmullRomCurve3(FLIGHT_PTS);
   const geo = new THREE.TubeGeometry(curve, TRACE_SEGS, 0.022, 6, false);
   const mat = new THREE.MeshBasicMaterial({ color: 0xff5a2a, transparent: true, opacity: 0.9,
     fog: false, depthWrite: false });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.visible = false;
   scene.add(mesh);
+  // cumulative arc-length per time sample: the tube is arc-length parameterized
+  // but the ball moves in time, so the reveal needs this map to track the ball
+  const cum = [0];
+  for (let i = 1; i < FLIGHT_PTS.length; i++)
+    cum.push(cum[i - 1] + FLIGHT_PTS[i].distanceTo(FLIGHT_PTS[i - 1]));
+  const total = cum[cum.length - 1];
   const perSeg = geo.index.count / TRACE_SEGS;
-  return { mesh, perSeg };
+  return { mesh, perSeg, cum, total };
 })();
 
 function updateBallFlight(t) {
   const u = t <= T_IMPACT ? 0 : (t - T_IMPACT) / (1 - T_IMPACT);
   flightPos(u, ball.position);
   tracer.mesh.visible = u > 0.004;
-  tracer.mesh.geometry.setDrawRange(0, Math.floor(u * TRACE_SEGS) * tracer.perSeg);
+  const i = Math.min(Math.floor(u * (FLIGHT_PTS.length - 1)), FLIGHT_PTS.length - 1);
+  const arcFrac = tracer.cum[i] / tracer.total;
+  tracer.mesh.geometry.setDrawRange(0, Math.floor(arcFrac * TRACE_SEGS) * tracer.perSeg);
 }
 
 /* ---------- the golfer: glossy mocap avatar (Gears-style) ---------- */
