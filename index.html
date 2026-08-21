@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Swing Plane Lab — P1–P10 Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e9ebee;
+    --panel: rgba(255, 255, 255, 0.88);
+    --line: rgba(20, 30, 40, 0.12);
+    --txt: #2a2f36;
+    --dim: #6c7480;
+    --amber: #c47500;
+    --amber-dim: rgba(196, 117, 0, 0.10);
+    --steel: #1f242b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); }
+  body {
+    font-family: "IBM Plex Sans", sans-serif;
+    color: var(--txt);
+    -webkit-font-smoothing: antialiased;
+  }
+  #scene { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .hud { position: fixed; z-index: 10; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+
+  /* ---------- title ---------- */
+  #title {
+    top: 22px; left: 26px;
+  }
+  #title h1 {
+    font-family: "Chakra Petch", sans-serif;
+    font-weight: 700; font-size: 19px; letter-spacing: 0.22em;
+    color: var(--steel); text-transform: uppercase;
+  }
+  #title h1 span { color: var(--amber); }
+  #title p {
+    margin-top: 3px; font-size: 11.5px; letter-spacing: 0.08em;
+    color: var(--dim); text-transform: uppercase;
+    font-family: "Chakra Petch", sans-serif;
+  }
+
+  /* ---------- info card ---------- */
+  #info {
+    top: 86px; left: 26px; width: 300px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    backdrop-filter: blur(10px);
+    padding: 16px 18px 15px;
+  }
+  #info .pnum {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 30px; font-weight: 700; color: var(--amber);
+    line-height: 1;
+  }
+  #info .pname {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--steel);
+    margin: 6px 0 8px;
+  }
+  #info .pdesc { font-size: 12.5px; line-height: 1.55; color: #4a5158; }
+  #info .wstat {
+    margin-top: 11px; padding-top: 9px;
+    border-top: 1px solid var(--line);
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--dim);
+    display: flex; align-items: baseline; gap: 7px;
+  }
+  #info .wstat b { font-size: 15px; font-weight: 700; color: var(--amber); letter-spacing: 0.02em; }
+  #info .wstat span { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; }
+
+  /* ---------- camera panel ---------- */
+  #cams {
+    top: 22px; right: 26px; display: flex; flex-direction: column; gap: 6px;
+    align-items: flex-end;
+  }
+  #cams .row { display: flex; gap: 6px; }
+  .cbtn {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--panel); color: var(--dim);
+    border: 1px solid var(--line);
+    padding: 8px 13px; cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .cbtn:hover { color: var(--steel); border-color: rgba(20,30,40,0.35); }
+  .cbtn.on { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+
+  /* ---------- toggles ---------- */
+  #toggles {
+    right: 26px; bottom: 130px; display: flex; flex-direction: column; gap: 5px;
+    align-items: flex-end;
+  }
+  .tog {
+    display: flex; align-items: center; gap: 8px;
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 10.5px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 6px 11px; cursor: pointer; user-select: none;
+    backdrop-filter: blur(10px);
+    transition: color .15s;
+  }
+  .tog:hover { color: var(--steel); }
+  .tog .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: transparent; border: 1px solid var(--dim);
+    transition: background .15s, border-color .15s;
+  }
+  .tog.on { color: var(--txt); }
+  .tog.on .dot { background: var(--amber); border-color: var(--amber); }
+
+  /* ---------- transport dock ---------- */
+  #dock {
+    left: 50%; bottom: 24px; transform: translateX(-50%);
+    width: min(760px, calc(100vw - 48px));
+    background: var(--panel);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+    padding: 14px 18px 16px;
+  }
+  #pbtns { display: flex; gap: 4px; margin-bottom: 13px; }
+  .pbtn {
+    flex: 1;
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.05em;
+    background: rgba(20,30,40,0.03);
+    color: var(--dim); border: 1px solid var(--line);
+    padding: 8px 0 7px; cursor: pointer;
+    transition: color .12s, background .12s, border-color .12s;
+  }
+  .pbtn small { display: block; font-size: 8px; letter-spacing: 0.08em; font-weight: 500; margin-top: 2px; opacity: .75; text-transform: uppercase; }
+  .pbtn:hover { color: var(--steel); border-color: rgba(20,30,40,0.35); }
+  .pbtn.on { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .pbtn.on small { opacity: .8; }
+
+  #transport { display: flex; align-items: center; gap: 14px; }
+  #play {
+    width: 40px; height: 40px; flex: none;
+    border: 1px solid var(--amber); background: var(--amber-dim);
+    color: var(--amber); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  #play:hover { background: rgba(196,117,0,0.2); }
+  #play svg { width: 15px; height: 15px; fill: currentColor; }
+
+  #speed { display: flex; gap: 3px; flex: none; }
+  .sbtn {
+    font-family: "Chakra Petch", sans-serif; font-size: 10px; font-weight: 600;
+    background: transparent; color: var(--dim); border: 1px solid var(--line);
+    padding: 5px 8px; cursor: pointer; letter-spacing: 0.05em;
+  }
+  .sbtn.on { color: var(--amber); border-color: var(--amber); }
+
+  #scrubwrap { flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
+  #ticks { position: absolute; left: 0; right: 0; top: 24px; height: 8px; pointer-events: none; }
+  #ticks i {
+    position: absolute; top: 0; width: 1px; height: 6px;
+    background: rgba(20,30,40,0.3);
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 3px; background: rgba(20,30,40,0.18);
+    outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--amber); border: 2px solid #fff;
+    box-shadow: 0 1px 6px rgba(20,30,40,0.35);
+    cursor: grab;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--amber); border: 2px solid #fff; cursor: grab;
+  }
+
+  /* ---------- theory / FAQ overlay ---------- */
+  #faqOverlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(30, 36, 44, 0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 30px;
+  }
+  #faqOverlay.open { display: flex; }
+  #faqPanel {
+    width: min(780px, 100%); max-height: 84vh; overflow-y: auto;
+    background: #fff; border: 1px solid var(--line);
+    padding: 30px 34px 26px;
+    box-shadow: 0 18px 60px rgba(20, 30, 40, 0.35);
+  }
+  #faqPanel h2 {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 17px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--steel);
+    margin-bottom: 4px;
+  }
+  #faqPanel .sub {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 18px;
+  }
+  #faqPanel details {
+    border-top: 1px solid var(--line);
+    padding: 0;
+  }
+  #faqPanel details:last-of-type { border-bottom: 1px solid var(--line); }
+  #faqPanel summary {
+    cursor: pointer; list-style: none;
+    padding: 13px 2px;
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 13px; font-weight: 600; color: var(--steel);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #faqPanel summary::-webkit-details-marker { display: none; }
+  #faqPanel summary::after {
+    content: "+"; color: var(--amber); font-size: 16px; font-weight: 700;
+    margin-left: 12px; flex: none;
+  }
+  #faqPanel details[open] summary::after { content: "–"; }
+  #faqPanel .a {
+    padding: 0 2px 16px; font-size: 13px; line-height: 1.65; color: #414851;
+  }
+  #faqPanel .a p { margin-bottom: 9px; }
+  #faqPanel .a p:last-child { margin-bottom: 0; }
+  #faqPanel .a b { color: var(--steel); }
+  #faqPanel .a .teal { color: #0b7568; font-weight: 600; }
+  #faqPanel .a .blue { color: #3a4cb8; font-weight: 600; }
+  #faqPanel table {
+    width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0 4px;
+  }
+  #faqPanel th {
+    font-family: "Chakra Petch", sans-serif; font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--dim); text-align: left;
+    padding: 6px 8px; border-bottom: 1px solid var(--line);
+  }
+  #faqPanel td {
+    padding: 7px 8px; border-bottom: 1px solid rgba(20,30,40,0.06);
+    vertical-align: top; line-height: 1.45; color: #414851;
+  }
+  #faqPanel td:first-child { font-family: "Chakra Petch", sans-serif; font-weight: 700; color: var(--amber); white-space: nowrap; }
+  #faqClose {
+    float: right; margin: -6px -8px 0 0;
+    font-family: "Chakra Petch", sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    background: transparent; border: 1px solid var(--line); color: var(--dim);
+    padding: 6px 12px; cursor: pointer;
+  }
+  #faqClose:hover { color: var(--steel); border-color: rgba(20,30,40,0.35); }
+  #faqPanel .src {
+    margin-top: 16px; font-size: 10.5px; color: var(--dim); line-height: 1.6;
+  }
+  #faqPanel .src a { color: var(--amber); text-decoration: none; }
+
+  /* ---------- footer hint ---------- */
+  #hint {
+    left: 50%; bottom: 6px; transform: translateX(-50%);
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(90,100,110,0.8); white-space: nowrap;
+  }
+
+  /* corner brackets on info card */
+  #info::before, #info::after {
+    content: ""; position: absolute; width: 10px; height: 10px; pointer-events: none;
+  }
+  #info::before { top: -1px; right: -1px; border-top: 1px solid var(--amber); border-right: 1px solid var(--amber); }
+  #info::after { bottom: -1px; right: -1px; border-bottom: 1px solid var(--amber); border-right: 1px solid var(--amber); }
+
+  @media (max-width: 900px) {
+    #info { display: none; }
+    .pbtn small { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div class="hud" id="title">
+  <h1>Swing <span>Plane</span> Lab</h1>
+  <p>P1 – P10 · driver model · right-handed</p>
+</div>
+
+<div class="hud" id="info">
+  <div class="pnum" id="infoNum">P1</div>
+  <div class="pname" id="infoName">Address</div>
+  <div class="pdesc" id="infoDesc"></div>
+  <div class="wstat">Lead arm – shaft angle <b id="wristVal">—</b><span id="wristTag"></span></div>
+</div>
+
+<div class="hud" id="cams">
+  <div class="row">
+    <button class="cbtn on" data-cam="face">Face On</button>
+    <button class="cbtn" data-cam="dtl">Down the Line</button>
+    <button class="cbtn" data-cam="orbit">360 Orbit</button>
+  </div>
+  <div class="row">
+    <button class="cbtn" id="faqBtn">Theory &amp; FAQ</button>
+  </div>
+</div>
+
+<div id="faqOverlay">
+  <div id="faqPanel">
+    <button id="faqClose">Close</button>
+    <h2>Theory &amp; FAQ</h2>
+    <div class="sub">The planes, the P system, and what to look for</div>
+
+    <details open>
+      <summary>What's the difference between the Delivery Plane and Hogan's Glass?</summary>
+      <div class="a">
+        <p>They are two different reference surfaces answering two different questions.</p>
+        <p><span class="teal">The Delivery Plane (teal, ~48°)</span> passes through the ball at roughly the
+        angle of the shaft at address. It answers: <b>where should the club travel as it approaches and strikes
+        the ball?</b> Through P5–P8 the shaft and clubhead ride close to this surface — that stretch is what
+        launch monitors and coaches usually mean when they measure "swing plane."</p>
+        <p><span class="blue">Hogan's Glass (blue, ~62°)</span> is the pane Ben Hogan described in
+        <i>Five Lessons</i>: a sheet of glass leaning from the ball up through <b>your own shoulders</b>, resting
+        on the neck, with your head poking through a hole. It's computed here from this golfer's actual build —
+        a taller or more bent-over player would tilt it differently. It answers a different question:
+        <b>how steep is too steep on the backswing?</b> It's a ceiling, not a rail.</p>
+        <p>So: backswing stays <b>under the glass</b>; delivery happens <b>on the lower plane</b>. The gap
+        between them is where the downswing "shallows."</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Does everything really have to stay under the glass?</summary>
+      <div class="a">
+        <p>On the backswing, yes — but with a nuance most people miss. Hogan was describing his <b>lead arm</b>,
+        not the clubshaft. His instruction: the lead arm stays below the glass for the entire backswing, and at
+        the top (P4) the back of the lead forearm should feel like it <b>brushes the underside</b> of the pane.
+        Shattering the glass going back means your arms lifted too steeply.</p>
+        <p>In practice Hogan's own arm never came close to the pane — it's a limit that guards against
+        steepness, not a target to swing along. And after impact the club naturally exits up past where the
+        glass would be; the pane concept only governs the backswing.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is "the slot"? People say "you're perfectly in the slot."</summary>
+      <div class="a">
+        <p>The slot is the space <b>between the two planes</b> — and being "in the slot" means your transition
+        dropped the club into it. Hogan described the downswing happening on a <b>second, shallower plane</b>:
+        when the hips fire first (P5), the trail shoulder drops and the whole plane tilts to point slightly
+        <b>right of the target</b>. The club falls from the backswing plane down onto the delivery plane —
+        under the glass, behind your hands, attacking the ball from the inside.</p>
+        <p>Scrub P4 → P6 from Down the Line and watch the club drop beneath the backswing path: that drop is
+        the slot. The opposite move — the club going <b>above</b> the plane in transition — is "over the top,"
+        the classic slice move.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What do the P1–P10 positions actually mean?</summary>
+      <div class="a">
+        <p>The P Classification System splits the swing into 10 checkpoints, each defined by geometry, so any
+        two swings can be compared frame to frame.</p>
+        <table>
+          <tr><th>P</th><th>Name</th><th>Defined by</th><th>Plane checkpoint</th></tr>
+          <tr><td>P1</td><td>Address</td><td>The setup</td><td>Shaft sits on the address plane; everything far below the glass</td></tr>
+          <tr><td>P2</td><td>Takeaway</td><td>Shaft parallel to ground</td><td>Shaft parallel to target line, clubhead outside hands</td></tr>
+          <tr><td>P3</td><td>Halfway back</td><td>Lead arm parallel</td><td>Butt of club points at the ball–target line; arm under the glass</td></tr>
+          <tr><td>P4</td><td>Top</td><td>Shaft parallel again</td><td>Shaft points at target; lead forearm brushes the glass's underside</td></tr>
+          <tr><td>P5</td><td>Early downswing</td><td>Lead arm parallel (down)</td><td>Butt points at the line; club drops into the slot</td></tr>
+          <tr><td>P6</td><td>Pre-impact</td><td>Shaft parallel (down)</td><td>Shaft parallel to target line, delivered from inside, max lag</td></tr>
+          <tr><td>P7</td><td>Impact</td><td>Contact</td><td>Shaft back near the address plane, hands ahead of the ball</td></tr>
+          <tr><td>P8</td><td>Release</td><td>Shaft parallel (through)</td><td>Shaft parallel to target line, both arms extended</td></tr>
+          <tr><td>P9</td><td>Finish</td><td>Lead arm parallel (up)</td><td>Butt points at the line; club now exits above the delivery plane</td></tr>
+          <tr><td>P10</td><td>End of swing</td><td>Full wrap</td><td>Planes no longer apply — balance is the checkpoint</td></tr>
+        </table>
+        <p>Notice the symmetry: P8 mirrors P2, P9 mirrors P3. The downswing positions look like the backswing
+        ones but sit <b>deeper and shallower</b> — that difference is the loop you see in the club path.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why is the club path a loop instead of a circle?</summary>
+      <div class="a">
+        <p>Because the backswing and downswing happen on different planes. Going back, the club sweeps wide and
+        then climbs as the wrists hinge (narrowing the arc). In transition it drops onto the shallower plane —
+        so it comes down <b>inside</b> the path it went up on. Through impact the arc is widest again, and the
+        finish wraps it around the body. Trace ≠ circle; trace = tilted loop. The takeaway (P2) and the
+        delivery (P6) look similar in a photo, but the P6 club is closer to your body line — compare their
+        markers from Down the Line.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What does the "lead arm – shaft angle" number mean?</summary>
+      <div class="a">
+        <p>It's the angle between the lead arm and the clubshaft — the classic measure of <b>wrist hinge</b>.
+        Around <b>180°</b> the arm and club form one straight line (fully released). Around <b>90°</b> the
+        wrists are fully hinged. The swing's whole story lives in this number: ~150° at address, gradually
+        setting to ~80–90° at the top, <b>held</b> through P5–P6 (that's lag), then released back to ~150° at
+        impact. Note P6 shows a smaller angle than its mirror position P3 — more stored angle on the way down
+        than at the same spot going up. That difference is stored speed.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is lag, and why does everyone obsess over it?</summary>
+      <div class="a">
+        <p>Lag is retained wrist hinge in the downswing — the clubhead trailing behind the hands while the body
+        rotates. It matters because releasing the angle late means the clubhead is still accelerating at the
+        ball instead of before it. The killer fault is <b>casting</b>: throwing the angle away from the top, so
+        the arm–shaft angle is already ~150° by P6 and there's nothing left to release. Scrub P5 → P7 at ¼×
+        and watch the angle number: it should stay low through P6 and snap open only through impact.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What would "over the top" look like in this viewer?</summary>
+      <div class="a">
+        <p>Over the top is the anti-slot: instead of the club dropping under the backswing plane in transition,
+        the trail shoulder spins out and throws the club <b>above</b> it — through Hogan's glass on the way
+        down. The club then approaches from outside the target line and cuts across the ball (out-to-in),
+        producing pulls and slices. In this model the P5–P6 club stays below and inside the backswing path;
+        an over-the-top move would show the downswing trace crossing outside the backswing trace.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Some videos draw THREE planes — shaft, elbow, and shoulder. How do those map here?</summary>
+      <div class="a">
+        <p>Swing analysts often draw three reference lines from Down the Line: the <b>shaft plane</b> (through
+        the sweet spot and the hands at address), the <b>trail-elbow plane</b> (sweet spot through the trail
+        elbow), and the <b>trail-shoulder plane</b> (drawn at the top, through the ball and the trail
+        shoulder). The insight is that the backswing <b>gradually steepens through them</b>: the club traces
+        the shaft plane at P2, sits between the elbow and shoulder planes at P3, and reaches its steepest —
+        near the shoulder plane — at P4. Steeper than the shoulder plane at the top usually predicts an
+        over-the-top move.</p>
+        <p>Our two panes bracket that progression: the <span class="teal">Delivery Plane</span> is essentially
+        the shaft plane, and <span class="blue">Hogan's Glass</span> (ball through the shoulders) is essentially
+        the trail-shoulder plane. A "neutral" top traces the shoulder plane; this model swings slightly
+        <b>under</b> it — the flatter, trail-elbow-tucked look of Hogan and Jason Dufner. Above it (Jim Furyk)
+        works too, as long as the ~90° relationship between the two arms is kept.</p>
+        <p>Related driver detail: with a full ~90° shoulder turn, a longer club on a flatter plane reaches
+        parallel at the top; shorter clubs on steeper planes stop short of parallel. Past parallel, the club
+        points right of the target; short of it, left — pure inclined-plane geometry, not a fault.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why does the downswing plane point right of the target?</summary>
+      <div class="a">
+        <p>Because the body moves toward the target while rotating. Hogan: starting the downswing with the hips
+        shifts everything left (for a right-hander), lowers the trail shoulder, and tilts the plane so it aims
+        slightly right of the target. Swinging along that tilted plane produces the in-to-out attack that
+        squares the face with speed instead of manipulation. It's not something you aim — it's the geometry
+        that falls out of a hips-first sequence.</p>
+      </div>
+    </details>
+
+    <div class="src">
+      Sources: Ben Hogan, <i>Five Lessons: The Modern Fundamentals of Golf</i> ·
+      <a href="https://www.perfectgolfswingreview.net/swingplane.htm" target="_blank">Perfect Golf Swing Review — Swing Plane</a> ·
+      <a href="https://hackmotion.com/golf-swing-positions/" target="_blank">HackMotion — P System</a> ·
+      <a href="https://www.golfsmartacademy.com/golf-instruction/path-check-points/" target="_blank">Golf Smart Academy — plane checkpoints</a> ·
+      <a href="https://rotaryswing.com/golf-instruction/swingdrills/ben-hogan-pane-of-glass-drill" target="_blank">Rotary Swing — Pane of Glass drill</a>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="toggles">
+  <div class="tog on" data-tog="plane"><span class="dot"></span>Delivery Plane</div>
+  <div class="tog on" data-tog="hogan"><span class="dot"></span>Hogan Glass</div>
+  <div class="tog on" data-tog="path"><span class="dot"></span>Club Path</div>
+  <div class="tog on" data-tog="hands"><span class="dot"></span>Hand Path</div>
+  <div class="tog on" data-tog="marks"><span class="dot"></span>P Markers</div>
+</div>
+
+<div class="hud" id="dock">
+  <div id="pbtns"></div>
+  <div id="transport">
+    <button id="play" title="Play / Pause (space)">
+      <svg id="playIcon" viewBox="0 0 16 16"><path d="M3 1.5v13l11-6.5z"/></svg>
+    </button>
+    <div id="speed">
+      <button class="sbtn" data-sp="0.25">¼×</button>
+      <button class="sbtn" data-sp="0.5">½×</button>
+      <button class="sbtn on" data-sp="1">1×</button>
+    </div>
+    <div id="scrubwrap">
+      <input type="range" id="scrub" min="0" max="1000" value="0" step="1" />
+      <div id="ticks"></div>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="hint">drag to orbit · scroll to zoom · keys 1–9, 0 → P1–P10 · space plays · click a marker to jump</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const V3 = (x=0,y=0,z=0) => new THREE.Vector3(x,y,z);
+const d2r = THREE.MathUtils.degToRad;
+
+/* ============================================================
+   SWING MODEL
+   Clubhead rides a perfect circle ("hoop") on an inclined plane
+   through the ball (Hogan's glass pane). Hands are keyframed at
+   each P position; the shaft is drawn head -> hands at constant
+   length, so hand keyframes only need to be roughly right.
+   ============================================================ */
+
+const CFG = {
+  ball:      V3(0.30, 0.03, 1.08),   // +X = target line, +Z = out toward ball
+  planeDeg:  48,                      // plane incline from ground
+  hoopR:     1.32,                    // clubhead arc radius
+  clubLen:   1.05,                    // grip-top -> clubhead
+  spineLen:  0.46,
+  shoulderHalf: 0.21,
+  hipHalf:   0.15,
+  upperArm:  0.34,
+  foreArm:   0.30,   // elbow -> wrist; the hand segment continues along the shaft
+  thigh:     0.45,
+  shin:      0.44,
+  pelvisY:   0.955,
+  footLx:    0.30,
+  footRx:   -0.30,
+};
+
+// plane basis: e2 climbs the plane from ball toward the golfer's shoulders
+const e2 = V3(0, Math.sin(d2r(CFG.planeDeg)), -Math.cos(d2r(CFG.planeDeg)));
+const hubC = CFG.ball.clone().addScaledVector(e2, CFG.hoopR);
+const uC = e2.clone().negate();               // hub -> ball
+const vC = V3(1, 0, 0);                        // along target line
+const planeN = new THREE.Vector3().crossVectors(vC, e2).normalize();
+
+function hoopPoint(thetaDeg, out) {
+  const th = d2r(thetaDeg);
+  out = out || V3();
+  return out.copy(hubC)
+    .addScaledVector(uC, CFG.hoopR * Math.cos(th))
+    .addScaledVector(vC, CFG.hoopR * Math.sin(th));
+}
+
+/* ---------- P1–P10 keyframes ----------
+   Positions follow the HackMotion P Classification System
+   (hackmotion.com/golf-swing-positions). `grip` is the exact hand
+   position; `dir` is the shaft direction from grip toward clubhead
+   (normalized at runtime); head = grip + clubLen * dir. */
+const KEYS = [
+  { p:"P1",  name:"Address",          t:0.000, grip:[ 0.08,0.73, 0.42], dir:[ 0.22,-0.72, 0.67], hip:  0, sh:   0, bend:30, side: 4, shift:-0.01, heel:0.00, dip: 0.000, look:  6, kl:0.00, kr:0.00, roll: 0, pl:[ 0.35,-0.94, 0.06], pr:[-0.15,-0.99,-0.02], tens:0.30,
+    desc:"The setup. For driver: ball off the front heel, stance wider than the shoulders, slightly more weight on the back foot, spine tilted a touch away from the target. Grip, posture and ball position get decided here." },
+  { p:"P2",  name:"Takeaway",         t:0.140, grip:[-0.21,0.74, 0.32], dir:[-0.99,-0.03, 0.14], hip:-14, sh: -34, bend:30, side: 4, shift:-0.02, heel:0.00, dip: 0.005, look:  6, kl:0.15, kr:0.00, roll: 2, pl:[ 0.11,-0.98, 0.15], pr:[-0.22,-0.97,-0.13], tens:0.00,
+    desc:"Ends when the shaft is parallel to the ground and the target line. The shoulders-and-arms triangle stays intact with minimal wrist movement, the clubhead stays outside the hands — and everything is still well beneath Hogan's glass." },
+  { p:"P3",  name:"Halfway Back",     t:0.260, grip:[-0.57,1.30, 0.15], dir:[-0.30, 0.84,-0.45], hip:-28, sh: -62, bend:31, side: 5, shift:-0.03, heel:0.00, dip: 0.015, look:  9, kl:0.40, kr:0.00, roll: 4, pl:[-0.10,-0.99, 0.12], pr:[-0.21,-0.95,-0.25], tens:0.00,
+    desc:"Lead arm parallel, wrists starting to hinge. On plane here means the butt of the club points at the ball-target line. Per Hogan, the lead arm stays UNDER the glass pane — breaking the glass going back means you're too steep." },
+  { p:"P4",  name:"Top of Backswing", t:0.400, grip:[-0.36,1.57,-0.02], dir:[ 0.90, 0.14,-0.36], hip:-44, sh: -95, bend:32, side: 6, shift:-0.04, heel:0.00, dip: 0.025, look: 12, kl:0.55, kr:0.00, roll: 6, pl:[-0.30,-0.95,-0.02], pr:[-0.13,-0.92,-0.36], tens:0.65,
+    desc:"The highest point: shaft parallel to the ground, pointing at the target, shoulders ~95° over hips ~45°. Hogan: the back of the lead forearm should feel like it brushes the UNDERSIDE of the glass here — never through it. Flat or slightly bowed lead wrist." },
+  { p:"P5",  name:"Early Downswing",  t:0.470, grip:[-0.49,1.27, 0.16], dir:[-0.38, 0.74,-0.55], hip:-20, sh: -55, bend:33, side:10, shift: 0.06, heel:0.01, dip: 0.022, look:  9, kl:0.35, kr:0.20, roll:-4, pl:[ 0.01,-0.99, 0.11], pr:[-0.19,-0.96,-0.22], tens:0.15,
+    desc:"Transition. The hips fire first, which per Hogan tilts the swing onto a SECOND, shallower plane pointing slightly right of the target — so the club drops deeper under the glass and attacks from in-to-out. Lead wrist moves toward flexion." },
+  { p:"P6",  name:"Pre-Impact",       t:0.535, grip:[-0.20,0.79, 0.30], dir:[-0.97,-0.02,-0.24], hip: 18, sh: -18, bend:32, side:11, shift: 0.07, heel:0.04, dip: 0.017, look:  6, kl:0.15, kr:0.40, roll:-3, pl:[ 0.30,-0.95, 0.10], pr:[-0.15,-0.98,-0.08], tens:0.00,
+    desc:"Shaft parallel to the ground on the way down. Looks like P3 mirrored — but the body is far more open and the club arrives from INSIDE the target line, lag releasing late. Check here how open or closed the clubface is." },
+  { p:"P7",  name:"Impact",           t:0.585, grip:[ 0.42,0.83, 0.40], dir:[-0.05,-0.75, 0.66], hip: 35, sh:  22, bend:31, side:12, shift: 0.09, heel:0.07, dip: 0.000, look: 10, kl:0.05, kr:0.60, roll:-4, pl:[ 0.54,-0.84,-0.08], pr:[-0.03,-1.00, 0.02], tens:0.00,
+    desc:"The moment of truth: square clubface, forward shaft lean with the hands ahead of the ball, weight shifted into the lead side. The most important checkpoint of the ten." },
+  { p:"P8",  name:"Release",          t:0.660, grip:[ 0.68,1.14, 0.38], dir:[ 0.98, 0.05, 0.15], hip: 50, sh:  50, bend:27, side: 9, shift: 0.12, heel:0.10, dip:-0.005, look: 38, kl:0.00, kr:0.75, roll:-6, pl:[ 0.57,-0.78,-0.25], pr:[ 0.06,-1.00, 0.07], tens:0.15,
+    desc:"Post-impact. Both arms fully extended toward the target, the trail arm rotating over the lead arm. The wrists re-extend as nearly all the weight transfers onto the lead foot." },
+  { p:"P9",  name:"Finish",           t:0.780, grip:[ 0.52,1.27,-0.04], dir:[ 0.35, 0.85,-0.56], hip: 62, sh:  80, bend:18, side: 4, shift: 0.13, heel:0.14, dip:-0.015, look: 72, kl:0.00, kr:0.90, roll:-6, pl:[ 0.45,-0.79,-0.41], pr:[ 0.14,-0.99, 0.10], tens:0.30,
+    desc:"The opposite of P3: lead arm parallel to the ground, now on the lead side, with the lead elbow folded close to the body. Balanced and controlled while the club keeps traveling up and around." },
+  { p:"P10", name:"End of Swing",     t:1.000, grip:[ 0.18,1.55,-0.05], dir:[-0.45,-0.18,-0.88], hip: 88, sh: 105, bend: 8, side:-3, shift: 0.14, heel:0.20, dip:-0.020, look: 95, kl:0.00, kr:1.00, roll:-4, pl:[ 0.24,-0.85,-0.47], pr:[ 0.17,-0.98, 0.09], tens:0.55,
+    desc:"The body faces the target completely, hands up by the lead ear, club wrapped behind the shoulders. Wrists fully released, weight planted on the lead foot — balanced enough to watch the whole ball flight." },
+];
+
+/* ---------- non-uniform Catmull-Rom (Hermite w/ finite-diff tangents) ---------- */
+function makeChannel(times, vals, tension) {
+  const n = times.length;
+  const tang = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (i === 0)          tang[i] = (vals[1]-vals[0]) / (times[1]-times[0]);
+    else if (i === n-1)   tang[i] = (vals[n-1]-vals[n-2]) / (times[n-1]-times[n-2]);
+    else                  tang[i] = (vals[i+1]-vals[i-1]) / (times[i+1]-times[i-1]);
+    if (tension) tang[i] *= 1 - tension[i];
+  }
+  return function (t) {
+    if (t <= times[0]) return vals[0];
+    if (t >= times[n-1]) return vals[n-1];
+    let i = 0;
+    while (t > times[i+1]) i++;
+    const h = times[i+1]-times[i], s = (t-times[i])/h, s2 = s*s, s3 = s2*s;
+    return (2*s3-3*s2+1)*vals[i] + (s3-2*s2+s)*h*tang[i]
+         + (-2*s3+3*s2)*vals[i+1] + (s3-s2)*h*tang[i+1];
+  };
+}
+
+const T  = KEYS.map(k => k.t);
+const TENS = KEYS.map(k => k.tens);
+const ch = {
+  gx:    makeChannel(T, KEYS.map(k => k.grip[0]), TENS),
+  gy:    makeChannel(T, KEYS.map(k => k.grip[1]), TENS),
+  gz:    makeChannel(T, KEYS.map(k => k.grip[2]), TENS),
+  dx:    makeChannel(T, KEYS.map(k => k.dir[0]), TENS),
+  dy:    makeChannel(T, KEYS.map(k => k.dir[1]), TENS),
+  dz:    makeChannel(T, KEYS.map(k => k.dir[2]), TENS),
+  hip:   makeChannel(T, KEYS.map(k => k.hip), TENS),
+  sh:    makeChannel(T, KEYS.map(k => k.sh), TENS),
+  bend:  makeChannel(T, KEYS.map(k => k.bend), TENS),
+  side:  makeChannel(T, KEYS.map(k => k.side), TENS),
+  shift: makeChannel(T, KEYS.map(k => k.shift), TENS),
+  heel:  makeChannel(T, KEYS.map(k => k.heel), TENS),
+  dip:   makeChannel(T, KEYS.map(k => k.dip), TENS),
+  look:  makeChannel(T, KEYS.map(k => k.look), TENS),
+  kl:    makeChannel(T, KEYS.map(k => k.kl), TENS),
+  kr:    makeChannel(T, KEYS.map(k => k.kr), TENS),
+  roll:  makeChannel(T, KEYS.map(k => k.roll), TENS),
+  plx:   makeChannel(T, KEYS.map(k => k.pl[0]), TENS),
+  ply:   makeChannel(T, KEYS.map(k => k.pl[1]), TENS),
+  plz:   makeChannel(T, KEYS.map(k => k.pl[2]), TENS),
+  prx:   makeChannel(T, KEYS.map(k => k.pr[0]), TENS),
+  pry:   makeChannel(T, KEYS.map(k => k.pr[1]), TENS),
+  prz:   makeChannel(T, KEYS.map(k => k.pr[2]), TENS),
+};
+
+/* ---------- two-bone IK ---------- */
+function solveIK(a, c, l1, l2, pole, out) {
+  const ac = c.clone().sub(a);
+  let d = ac.length();
+  const dMax = l1 + l2 - 1e-4, dMin = Math.abs(l1 - l2) + 1e-4;
+  let dc = THREE.MathUtils.clamp(d, dMin, dMax);
+  // soft-IK: ease the joint into full extension instead of snapping. Near the
+  // reach limit the bend offset varies as sqrt(reach - d), whose rate blows up
+  // at the limit — exponentially damping the last 1.5% removes the elbow/knee
+  // whip when an arm straightens fast (e.g. the trail arm through impact).
+  const dSoft = (l1 + l2) * 0.985;
+  if (dc > dSoft) dc = dSoft + (dMax - dSoft) * (1 - Math.exp(-(dc - dSoft) / (dMax - dSoft)));
+  const dir = ac.normalize();
+  // distance from a to the elbow projection along dir
+  const proj = (dc*dc + l1*l1 - l2*l2) / (2*dc);
+  const h = Math.sqrt(Math.max(l1*l1 - proj*proj, 0));
+  // bend direction: pole orthogonalized against dir
+  const bendDir = pole.clone().addScaledVector(dir, -pole.dot(dir));
+  if (bendDir.lengthSq() < 1e-6) bendDir.set(0, 0, 1);
+  bendDir.normalize();
+  return (out || V3()).copy(a).addScaledVector(dir, proj).addScaledVector(bendDir, h);
+}
+
+/* ---------- pose evaluation ---------- */
+const X_AXIS = V3(1,0,0), Y_AXIS = V3(0,1,0), Z_AXIS = V3(0,0,1);
+const qAxis = (axis, angle) => new THREE.Quaternion().setFromAxisAngle(axis, angle);
+
+function evalPose(t) {
+  const grip = V3(ch.gx(t), ch.gy(t), ch.gz(t));
+  const shaftDir = V3(ch.dx(t), ch.dy(t), ch.dz(t)).normalize();
+  const head = grip.clone().addScaledVector(shaftDir, CFG.clubLen);
+  if (head.y < 0.045) { // keep the clubhead from dipping under the turf mid-interpolation
+    head.y = 0.045;
+    shaftDir.copy(head).sub(grip).normalize();
+    head.copy(grip).addScaledVector(shaftDir, CFG.clubLen);
+  }
+
+  const hip = d2r(ch.hip(t)), sh = d2r(ch.sh(t));
+  const bend = d2r(ch.bend(t)), side = d2r(ch.side(t));
+  const shift = ch.shift(t), heel = ch.heel(t);
+  const dip = ch.dip(t), lookDeg = ch.look(t);
+
+  const pelvis = V3(shift, CFG.pelvisY - dip, 0);
+
+  // torso frame: side-lean (about Z), forward bend (about X), turns about local Y
+  const qLean = qAxis(Z_AXIS, side).multiply(qAxis(X_AXIS, bend));
+  const up = Y_AXIS.clone().applyQuaternion(qLean);
+  const fwd = Z_AXIS.clone().applyQuaternion(qLean);
+  const chest = pelvis.clone().addScaledVector(up, CFG.spineLen);
+  const midSpine = pelvis.clone().addScaledVector(up, CFG.spineLen * 0.5);
+
+  const qTorso = qLean.clone().multiply(qAxis(Y_AXIS, sh));
+  const shoulderDir = X_AXIS.clone().applyQuaternion(qTorso);
+  const shL = chest.clone().addScaledVector(shoulderDir,  CFG.shoulderHalf); // lead (left)
+  const shR = chest.clone().addScaledVector(shoulderDir, -CFG.shoulderHalf); // trail (right)
+
+  // head stays quiet: eye-line holds on the ball, then releases to watch the flight
+  const headC = chest.clone().addScaledVector(up, 0.22).addScaledVector(fwd, 0.05);
+  const pitch = d2r(26 - 34 * THREE.MathUtils.clamp((lookDeg - 8) / 85, 0, 1));
+  const qHead = qAxis(Z_AXIS, side * 0.35)
+    .multiply(qAxis(Y_AXIS, d2r(lookDeg)))
+    .multiply(qAxis(X_AXIS, pitch));
+
+  // spiral of the torso: hips lead, ribcage carries most of the shoulder turn
+  const lowerTwist = hip + (sh - hip) * 0.35;
+  const upperTwist = hip + (sh - hip) * 0.78;
+  const qHips = qAxis(Z_AXIS, side * 0.5)
+    .multiply(qAxis(X_AXIS, bend * 0.45))
+    .multiply(qAxis(Y_AXIS, hip));
+
+  const hipDir = X_AXIS.clone().applyAxisAngle(Y_AXIS, hip);
+  const rollR = d2r(ch.roll(t));
+  const hipL = pelvis.clone().addScaledVector(hipDir,  CFG.hipHalf).add(V3(0, -0.02 - Math.sin(rollR) * CFG.hipHalf, 0));
+  const hipR = pelvis.clone().addScaledVector(hipDir, -CFG.hipHalf).add(V3(0, -0.02 + Math.sin(rollR) * CFG.hipHalf, 0));
+
+  // feet / legs
+  const toeL = V3(CFG.footLx + 0.06, 0.02, 0.19);
+  const toeR = V3(CFG.footRx - 0.01, 0.02, 0.18);
+  const ankL = V3(CFG.footLx, 0.075, 0);
+  const ankR = V3(CFG.footRx, 0.075 + heel, heel * 0.55);
+  // knee drive: lead knee works inward going back, trail knee fires toward
+  // the target coming down and folds in behind by the finish
+  const kl = ch.kl(t), kr = ch.kr(t);
+  const kneeL = solveIK(hipL, ankL, CFG.thigh, CFG.shin, V3(0.15 - kl, 0.05, 1));
+  const kneeR = solveIK(hipR, ankR, CFG.thigh, CFG.shin, V3(-0.15 + kr, 0.05, 1));
+
+  // wrists sit just off the grip; the fists wrap the handle ALONG the shaft,
+  // so the angle at each wrist (forearm vs club) is the visible wrist hinge.
+  // Lead (gloved) hand on top of the grip, trail hand stacked below it.
+  const wristL = grip.clone().addScaledVector(shaftDir, -0.045);
+  const handLTip = grip.clone().addScaledVector(shaftDir, 0.085);
+  const wristR = grip.clone().addScaledVector(shaftDir, 0.085);
+  const handRTip = grip.clone().addScaledVector(shaftDir, 0.175);
+
+  // elbow bend directions are authored per keyframe and interpolated like every
+  // other channel — deriving them from the live torso rotation made the elbows
+  // whip during the downswing when the body unwinds ~120 deg in half a second
+  const poleL = V3(ch.plx(t), ch.ply(t), ch.plz(t)).normalize();
+  const poleR = V3(ch.prx(t), ch.pry(t), ch.prz(t)).normalize();
+  const elbL = solveIK(shL, wristL, CFG.upperArm, CFG.foreArm, poleL);
+  const elbR = solveIK(shR, wristR, CFG.upperArm, CFG.foreArm, poleR);
+
+  return { head, grip, shaftDir, pelvis, chest, midSpine, headC, shL, shR, hipL, hipR,
+           kneeL, kneeR, ankL, ankR, toeL, toeR, elbL, elbR,
+           wristL, wristR, handLTip, handRTip,
+           qLean, qTorso, qHips, qHead, up, fwd, lowerTwist, upperTwist };
+}
+
+/* ============================================================
+   SCENE
+   ============================================================ */
+const container = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9ebee);
+scene.fog = new THREE.Fog(0xe9ebee, 9, 20);
+
+const camera = new THREE.PerspectiveCamera(33, innerWidth / innerHeight, 0.1, 60);
+camera.position.set(0.35, 0.95, 7.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.1, 0.62, 0.35);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 2.2;
+controls.maxDistance = 16;
+// walkaround only: spin stays on the ground plane (azimuth), with just a
+// slight vertical allowance — no orbiting over the top of the golfer
+controls.minPolarAngle = THREE.MathUtils.degToRad(70);
+controls.maxPolarAngle = THREE.MathUtils.degToRad(93);
+controls.autoRotateSpeed = 1.5;
+
+/* ---------- lights ---------- */
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb2b8c0, 0.55));
+const key = new THREE.DirectionalLight(0xfff2dd, 1.75);
+key.position.set(2.5, 5.5, 3.0);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -3; key.shadow.camera.right = 3;
+key.shadow.camera.top = 3;   key.shadow.camera.bottom = -3;
+key.shadow.bias = -0.0005;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x7fb4d8, 0.75);
+rim.position.set(-3, 2.5, -3.5);
+scene.add(rim);
+const rim2 = new THREE.DirectionalLight(0xffc98a, 0.45);
+rim2.position.set(3.5, 1.8, -3.0);
+scene.add(rim2);
+
+/* ---------- ground ---------- */
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(11, 64),
+  new THREE.MeshStandardMaterial({ color: 0xe3e6ea, roughness: 0.95 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(14, 28, 0xaeb6bf, 0xc9cfd6);
+grid.position.y = 0.001;
+scene.add(grid);
+
+// target line
+{
+  const pts = [CFG.ball.clone().setY(0.005), V3(4.2, 0.005, CFG.ball.z)];
+  const g = new THREE.BufferGeometry().setFromPoints(pts);
+  const m = new THREE.LineDashedMaterial({ color: 0x4a5158, dashSize: 0.12, gapSize: 0.10, transparent: true, opacity: 0.55 });
+  const line = new THREE.Line(g, m);
+  line.computeLineDistances();
+  scene.add(line);
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 12),
+    new THREE.MeshBasicMaterial({ color: 0x4a5158, transparent: true, opacity: 0.65 }));
+  arrow.position.set(4.3, 0.01, CFG.ball.z);
+  arrow.rotation.z = -Math.PI / 2;
+  scene.add(arrow);
+}
+
+// ball + tee
+const ball = new THREE.Mesh(new THREE.SphereGeometry(0.030, 24, 18),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
+ball.position.copy(CFG.ball).add(V3(0.075, 0, 0)); // just ahead of the resting clubhead
+ball.castShadow = true;
+scene.add(ball);
+const tee = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, CFG.ball.y, 8),
+  new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 }));
+tee.position.set(CFG.ball.x + 0.075, CFG.ball.y / 2, CFG.ball.z);
+scene.add(tee);
+
+/* ---------- swing plane pane + hoop trace ---------- */
+const planeGroup = new THREE.Group();
+{
+  const R2 = CFG.hoopR + 0.45;
+  const paneQ = new THREE.Quaternion().setFromUnitVectors(Z_AXIS, planeN);
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(R2, 72),
+    new THREE.MeshBasicMaterial({ color: 0x0e8a7d, transparent: true, opacity: 0.09,
+      side: THREE.DoubleSide, depthWrite: false })
+  );
+  disc.position.copy(hubC);
+  disc.quaternion.copy(paneQ);
+  planeGroup.add(disc);
+  // dotted border at the pane's rim
+  const rimPts = Array.from({ length: 129 }, (_, i) => {
+    const a = (i / 128) * Math.PI * 2;
+    return hubC.clone()
+      .addScaledVector(uC, R2 * Math.cos(a))
+      .addScaledVector(vC, R2 * Math.sin(a));
+  });
+  const rimLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(rimPts),
+    new THREE.LineDashedMaterial({ color: 0x0b7568, dashSize: 0.07, gapSize: 0.055,
+      transparent: true, opacity: 0.65 })
+  );
+  rimLine.computeLineDistances();
+  planeGroup.add(rimLine);
+  // slat lines across the pane, running toward the target — depth cue from any angle
+  const slatPts = [];
+  for (let d = -R2 + 0.25; d < R2; d += 0.42) {
+    const half = Math.sqrt(Math.max(R2 * R2 - d * d, 0));
+    slatPts.push(
+      hubC.clone().addScaledVector(uC, d).addScaledVector(vC, -half),
+      hubC.clone().addScaledVector(uC, d).addScaledVector(vC, half)
+    );
+  }
+  const slats = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(slatPts),
+    new THREE.LineBasicMaterial({ color: 0x0e8a7d, transparent: true, opacity: 0.3 })
+  );
+  planeGroup.add(slats);
+}
+scene.add(planeGroup);
+
+/* Hogan's glass pane (Five Lessons): a sheet from the ball up through THIS
+   golfer's shoulder line at address, resting on the neck. It is the ceiling
+   for the backswing — the lead arm must stay beneath it (Hogan meant the arm,
+   not the clubshaft). Computed from the model's own build, so a different
+   posture would tilt it differently. */
+const hoganGroup = new THREE.Group();
+{
+  const addr = evalPose(0);
+  const climb = addr.chest.clone().sub(CFG.ball);
+  climb.x = 0; // pane contains the target-line direction
+  const e2h = climb.normalize();
+  const nH = new THREE.Vector3().crossVectors(V3(1, 0, 0), e2h).normalize();
+  const qH = new THREE.Quaternion().setFromUnitVectors(Z_AXIS, nH);
+  const RH = 1.9;
+  const centerH = CFG.ball.clone().addScaledVector(e2h, 1.35);
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(RH, 72),
+    new THREE.MeshBasicMaterial({ color: 0x4a5fd0, transparent: true, opacity: 0.055,
+      side: THREE.DoubleSide, depthWrite: false })
+  );
+  disc.position.copy(centerH);
+  disc.quaternion.copy(qH);
+  hoganGroup.add(disc);
+  const rimPts = Array.from({ length: 129 }, (_, i) => {
+    const a = (i / 128) * Math.PI * 2;
+    return centerH.clone()
+      .addScaledVector(e2h, RH * Math.cos(a))
+      .addScaledVector(V3(1, 0, 0), RH * Math.sin(a));
+  });
+  const rimLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(rimPts),
+    new THREE.LineDashedMaterial({ color: 0x3a4cb8, dashSize: 0.07, gapSize: 0.055,
+      transparent: true, opacity: 0.5 })
+  );
+  rimLine.computeLineDistances();
+  hoganGroup.add(rimLine);
+}
+scene.add(hoganGroup);
+
+const pathGroup = new THREE.Group();
+{
+  // dotted clubhead path — the real traced loop: wide takeaway, narrow at the
+  // top (wrist hinge), back out wide through delivery, wrapped at the finish
+  const pts = [];
+  for (let i = 0; i <= 300; i++) pts.push(evalPose(i / 300).head);
+  const g = new THREE.BufferGeometry().setFromPoints(pts);
+  const m = new THREE.LineDashedMaterial({ color: 0x9c5400, dashSize: 0.055, gapSize: 0.045,
+    transparent: true, opacity: 1 });
+  const line = new THREE.Line(g, m);
+  line.computeLineDistances();
+  pathGroup.add(line);
+}
+scene.add(pathGroup);
+
+const handsGroup = new THREE.Group();
+{
+  const pts = [];
+  for (let i = 0; i <= 200; i++) pts.push(evalPose(i / 200).grip);
+  const g = new THREE.BufferGeometry().setFromPoints(pts);
+  const m = new THREE.LineDashedMaterial({ color: 0x7d8590, dashSize: 0.03, gapSize: 0.035,
+    transparent: true, opacity: 0.7 });
+  const line = new THREE.Line(g, m);
+  line.computeLineDistances();
+  handsGroup.add(line);
+}
+scene.add(handsGroup);
+
+/* ---------- P markers on the hoop ---------- */
+const markerGroup = new THREE.Group();
+scene.add(markerGroup);
+const markerMeshes = [];
+function labelSprite(text) {
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.font = "600 34px 'Chakra Petch', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#b56a00";
+  ctx.shadowColor = "rgba(255,255,255,0.95)"; ctx.shadowBlur = 8;
+  ctx.fillText(text, 64, 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.set(0.26, 0.13, 1);
+  return s;
+}
+// markers sit on the traced clubhead path at each key time.
+// P1 and P7 nearly coincide at the ball, so nudge those dots apart along
+// the target line; downswing labels (P5–P7) go inside the loop.
+const M_NUDGE = [-0.06, 0, 0, 0, 0, 0, 0.06, 0, 0, 0];
+function buildMarkers() {
+  KEYS.forEach((k, i) => {
+    const pos = evalPose(k.t).head.add(V3(M_NUDGE[i], 0, 0));
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.028, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xd97e00 }));
+    dot.position.copy(pos);
+    dot.userData.pIndex = i;
+    markerGroup.add(dot);
+    markerMeshes.push(dot);
+    const lab = labelSprite(k.p);
+    const radial = pos.clone().sub(hubC).normalize();
+    const inside = (i >= 4 && i <= 6);
+    lab.position.copy(pos)
+      .addScaledVector(radial, inside ? -0.17 : 0.15)
+      .addScaledVector(planeN, 0.08);
+    markerGroup.add(lab);
+  });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildMarkers);
+else buildMarkers();
+
+/* ---------- the golfer: glossy mocap avatar (Gears-style) ---------- */
+const suitMat  = new THREE.MeshPhysicalMaterial({ color: 0xf4f5f7, roughness: 0.38, metalness: 0.0,
+  clearcoat: 0.5, clearcoatRoughness: 0.35 });
+const jointMat2 = new THREE.MeshStandardMaterial({ color: 0x2f52d9, roughness: 0.35, metalness: 0.1 });
+const visorMat  = new THREE.MeshStandardMaterial({ color: 0xc9cdd4, roughness: 0.45 });
+const shirtMat  = suitMat, sleeveMat = suitMat, skinMat = suitMat, pantsMat = suitMat;
+const shoeMat   = new THREE.MeshStandardMaterial({ color: 0xcfd3d9, roughness: 0.5 });
+const gloveMat  = suitMat;
+const capMat    = jointMat2;
+
+const unitCyl = new THREE.CylinderGeometry(1, 1, 1, 10);
+const _dir = V3(), _mid = V3();
+function setBone(mesh, a, b) {
+  _dir.subVectors(b, a);
+  const len = Math.max(_dir.length(), 1e-5);
+  _mid.addVectors(a, b).multiplyScalar(0.5);
+  mesh.position.copy(_mid);
+  mesh.scale.set(mesh.userData.r, len, mesh.userData.r);
+  mesh.quaternion.setFromUnitVectors(Y_AXIS, _dir.normalize());
+}
+
+// fixed-length capsule limb: rounded ends overlap at the joints so the body
+// articulates smoothly with no visible ball-joints
+function limb(r, len, mat, opts = {}) {
+  const cyl = Math.max(len - r * 1.1, 0.02);
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, cyl, 6, 16), mat);
+  m.castShadow = true;
+  m.userData = { len, stretch: !!opts.stretch };
+  if (opts.scaleZ) m.scale.z = opts.scaleZ;
+  scene.add(m);
+  return m;
+}
+const _twistQ = new THREE.Quaternion();
+function setLimb(m, a, b, twist) {
+  _dir.subVectors(b, a);
+  const d = Math.max(_dir.length(), 1e-5);
+  m.position.addVectors(a, b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(Y_AXIS, _dir.multiplyScalar(1 / d));
+  if (twist) { _twistQ.setFromAxisAngle(Y_AXIS, twist); m.quaternion.multiply(_twistQ); }
+  if (m.userData.stretch) m.scale.y = d / m.userData.len;
+}
+function blob(sx, sy, sz, mat) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), mat);
+  m.scale.set(sx, sy, sz);
+  m.castShadow = true;
+  scene.add(m);
+  return m;
+}
+
+const body = {
+  hips:   blob(0.148, 0.130, 0.115, suitMat),
+  lower:  limb(0.115, 0.30, shirtMat, { scaleZ: 0.75 }),
+  chest:  limb(0.135, 0.33, shirtMat, { scaleZ: 0.78 }),
+  clavL:  limb(0.045, CFG.shoulderHalf, shirtMat, { stretch: true }),
+  clavR:  limb(0.045, CFG.shoulderHalf, shirtMat, { stretch: true }),
+  deltL:  blob(0.062, 0.062, 0.062, jointMat2),
+  deltR:  blob(0.062, 0.062, 0.062, jointMat2),
+  neck:   limb(0.038, 0.10, jointMat2, { stretch: true }),
+  uArmL:  limb(0.047, CFG.upperArm, sleeveMat),
+  uArmR:  limb(0.047, CFG.upperArm, sleeveMat),
+  fArmL:  limb(0.037, CFG.foreArm, skinMat, { stretch: true }),
+  fArmR:  limb(0.037, CFG.foreArm, skinMat, { stretch: true }),
+  wristL: blob(0.036, 0.036, 0.036, jointMat2),
+  wristR: blob(0.036, 0.036, 0.036, jointMat2),
+  handL:  limb(0.041, 0.13, gloveMat, { stretch: true }),  // gloved lead fist along the shaft
+  handR:  limb(0.041, 0.09, skinMat,  { stretch: true }),  // bare trail fist below it
+  thighL: limb(0.068, CFG.thigh, pantsMat),
+  thighR: limb(0.068, CFG.thigh, pantsMat),
+  shinL:  limb(0.050, CFG.shin, pantsMat),
+  shinR:  limb(0.050, CFG.shin, pantsMat),
+  shoeL:  limb(0.047, 0.21, shoeMat, { stretch: true }),
+  shoeR:  limb(0.047, 0.21, shoeMat, { stretch: true }),
+  elbLJ:  blob(0.050, 0.050, 0.050, jointMat2),
+  elbRJ:  blob(0.050, 0.050, 0.050, jointMat2),
+  kneeLJ: blob(0.056, 0.056, 0.056, jointMat2),
+  kneeRJ: blob(0.056, 0.056, 0.056, jointMat2),
+  ankLJ:  blob(0.046, 0.046, 0.046, jointMat2),
+  ankRJ:  blob(0.046, 0.046, 0.046, jointMat2),
+};
+
+// smooth android head with a dark face visor, so you can read where he's looking
+const headGroup = new THREE.Group();
+{
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.102, 26, 20), suitMat);
+  skull.scale.set(0.92, 1.04, 0.96);
+  skull.castShadow = true;
+  headGroup.add(skull);
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.078, 20, 16), visorMat);
+  visor.scale.set(0.78, 0.62, 0.42);
+  visor.position.set(0, 0.005, 0.072);
+  headGroup.add(visor);
+}
+scene.add(headGroup);
+
+/* ---------- the club (prominent) ---------- */
+const shaftMat = new THREE.MeshStandardMaterial({ color: 0x7d868f, roughness: 0.25, metalness: 0.8 });
+const gripMat  = new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.8 });
+const headMatC = new THREE.MeshStandardMaterial({ color: 0xffb347, roughness: 0.3, metalness: 0.5,
+  emissive: 0x7a4d10, emissiveIntensity: 0.35 });
+
+const shaft = new THREE.Mesh(unitCyl, shaftMat);
+shaft.castShadow = true; shaft.userData.r = 0.011; scene.add(shaft);
+const gripSeg = new THREE.Mesh(unitCyl, gripMat);
+gripSeg.castShadow = true; gripSeg.userData.r = 0.016; scene.add(gripSeg);
+const clubHead = new THREE.Mesh(new THREE.SphereGeometry(0.062, 20, 16), headMatC);
+clubHead.scale.set(1.15, 0.72, 0.9);
+clubHead.castShadow = true;
+scene.add(clubHead);
+
+/* ---------- apply pose ---------- */
+const _shaftQ = new THREE.Quaternion();
+function applyPose(pose) {
+  body.hips.position.copy(pose.pelvis);
+  body.hips.quaternion.copy(pose.qHips);
+  setLimb(body.lower, pose.pelvis, pose.midSpine, pose.lowerTwist);
+  setLimb(body.chest, pose.midSpine, pose.chest, pose.upperTwist);
+  setLimb(body.clavL, pose.chest, pose.shL);
+  setLimb(body.clavR, pose.chest, pose.shR);
+  body.deltL.position.copy(pose.shL); body.deltL.quaternion.copy(pose.qTorso);
+  body.deltR.position.copy(pose.shR); body.deltR.quaternion.copy(pose.qTorso);
+  setLimb(body.neck, pose.chest.clone().addScaledVector(pose.up, 0.05), pose.headC);
+  headGroup.position.copy(pose.headC);
+  headGroup.quaternion.copy(pose.qHead);
+
+  setLimb(body.uArmL, pose.shL, pose.elbL);
+  setLimb(body.uArmR, pose.shR, pose.elbR);
+  setLimb(body.fArmL, pose.elbL, pose.wristL);
+  setLimb(body.fArmR, pose.elbR, pose.wristR);
+  body.wristL.position.copy(pose.wristL);
+  body.wristR.position.copy(pose.wristR);
+  setLimb(body.handL, pose.wristL, pose.handLTip);
+  setLimb(body.handR, pose.wristR, pose.handRTip);
+  _shaftQ.setFromUnitVectors(Y_AXIS, pose.shaftDir);
+
+  setLimb(body.thighL, pose.hipL, pose.kneeL);
+  setLimb(body.thighR, pose.hipR, pose.kneeR);
+  setLimb(body.shinL, pose.kneeL, pose.ankL);
+  setLimb(body.shinR, pose.kneeR, pose.ankR);
+  setLimb(body.shoeL, pose.ankL.clone().add(V3(0, -0.012, -0.045)), pose.toeL);
+  setLimb(body.shoeR, pose.ankR.clone().add(V3(0, -0.012, -0.045)), pose.toeR);
+  body.elbLJ.position.copy(pose.elbL);  body.elbRJ.position.copy(pose.elbR);
+  body.kneeLJ.position.copy(pose.kneeL); body.kneeRJ.position.copy(pose.kneeR);
+  body.ankLJ.position.copy(pose.ankL);  body.ankRJ.position.copy(pose.ankR);
+
+  const gripEnd = pose.grip.clone().addScaledVector(pose.shaftDir, 0.24);
+  setBone(gripSeg, pose.grip, gripEnd);
+  setBone(shaft, gripEnd, pose.head);
+  clubHead.position.copy(pose.head);
+  clubHead.quaternion.copy(_shaftQ);
+}
+
+/* ============================================================
+   INTERACTION / UI
+   ============================================================ */
+let tCur = 0;
+let playing = false;
+let speed = 1;
+const DURATION = 2.9; // seconds at 1x
+let tweenT = null;    // {from, to, start, dur}
+let camTween = null;
+
+const scrub = document.getElementById("scrub");
+const infoNum = document.getElementById("infoNum");
+const infoName = document.getElementById("infoName");
+const infoDesc = document.getElementById("infoDesc");
+const playBtn = document.getElementById("play");
+const playIcon = document.getElementById("playIcon");
+
+const pbtnsEl = document.getElementById("pbtns");
+KEYS.forEach((k, i) => {
+  const b = document.createElement("button");
+  b.className = "pbtn";
+  b.innerHTML = `${k.p}<small>${k.name.split(" ")[0]}</small>`;
+  b.title = k.name;
+  b.addEventListener("click", () => goToP(i));
+  pbtnsEl.appendChild(b);
+});
+const pbtnEls = [...pbtnsEl.children];
+
+const ticksEl = document.getElementById("ticks");
+KEYS.forEach(k => {
+  const i = document.createElement("i");
+  i.style.left = (k.t * 100) + "%";
+  ticksEl.appendChild(i);
+});
+
+function nearestP(t) {
+  let best = 0, bd = 1e9;
+  KEYS.forEach((k, i) => { const d = Math.abs(k.t - t); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+
+let lastPIdx = -1;
+function updateHUD() {
+  scrub.value = Math.round(tCur * 1000);
+  const i = nearestP(tCur);
+  pbtnEls.forEach((b, j) => b.classList.toggle("on", j === i));
+  if (i !== lastPIdx) {
+    lastPIdx = i;
+    const k = KEYS[i];
+    infoNum.textContent = k.p;
+    infoName.textContent = k.name;
+    infoDesc.textContent = k.desc;
+  }
+}
+
+const wristVal = document.getElementById("wristVal");
+const wristTag = document.getElementById("wristTag");
+function setT(t) {
+  tCur = THREE.MathUtils.clamp(t, 0, 1);
+  const pose = evalPose(tCur);
+  applyPose(pose);
+  // classic hinge metric: angle between the lead arm line and the shaft
+  // (~180° = fully released/straight, ~90° = fully hinged)
+  const armDir = pose.wristL.clone().sub(pose.shL).normalize();
+  const dot = THREE.MathUtils.clamp(armDir.dot(pose.shaftDir), -1, 1);
+  const hinge = Math.round(180 - THREE.MathUtils.radToDeg(Math.acos(dot)));
+  wristVal.textContent = hinge + "°";
+  wristTag.textContent = hinge < 115 ? "fully hinged" : hinge < 150 ? "hinged" : "released";
+  updateHUD();
+}
+
+function goToP(i) {
+  stopPlay();
+  tweenT = { from: tCur, to: KEYS[i].t, start: performance.now(), dur: 550 };
+}
+
+function stopPlay() {
+  playing = false;
+  playIcon.innerHTML = '<path d="M3 1.5v13l11-6.5z"/>';
+}
+let playStarted = 0;
+function startPlay() {
+  tweenT = null;
+  if (tCur >= 0.999) setT(0);
+  playing = true;
+  playStarted = performance.now();
+  playIcon.innerHTML = '<path d="M2.5 1.5h4v13h-4zM9.5 1.5h4v13h-4z"/>';
+}
+playBtn.addEventListener("click", () => playing ? stopPlay() : startPlay());
+
+scrub.addEventListener("input", () => {
+  stopPlay(); tweenT = null;
+  setT(scrub.value / 1000);
+});
+
+/* ---------- theory / FAQ ---------- */
+const faqOverlay = document.getElementById("faqOverlay");
+document.getElementById("faqBtn").addEventListener("click", () => faqOverlay.classList.add("open"));
+document.getElementById("faqClose").addEventListener("click", () => faqOverlay.classList.remove("open"));
+faqOverlay.addEventListener("click", e => { if (e.target === faqOverlay) faqOverlay.classList.remove("open"); });
+
+document.querySelectorAll(".sbtn").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".sbtn").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    speed = parseFloat(b.dataset.sp);
+  });
+});
+
+/* ---------- toggles ---------- */
+const togTargets = { plane: planeGroup, hogan: hoganGroup, path: pathGroup, hands: handsGroup, marks: markerGroup };
+document.querySelectorAll(".tog").forEach(el => {
+  el.addEventListener("click", () => {
+    el.classList.toggle("on");
+    togTargets[el.dataset.tog].visible = el.classList.contains("on");
+  });
+});
+
+/* ---------- cameras ---------- */
+const CAMS = {
+  face:  { pos: V3(0.35, 0.95, 7.2),  tgt: V3(0.10, 0.62, 0.35) },
+  dtl:   { pos: V3(-6.8, 0.95, 0.90), tgt: V3(0.35, 0.65, 0.60) },
+  orbit: null,
+};
+const camBtns = [...document.querySelectorAll(".cbtn[data-cam]")];
+function setCam(name) {
+  camBtns.forEach(b => b.classList.toggle("on", b.dataset.cam === name));
+  if (name === "orbit") { controls.autoRotate = true; return; }
+  controls.autoRotate = false;
+  const c = CAMS[name];
+  camTween = {
+    p0: camera.position.clone(), p1: c.pos.clone(),
+    t0: controls.target.clone(), t1: c.tgt.clone(),
+    start: performance.now(), dur: 900,
+  };
+}
+camBtns.forEach(b => b.addEventListener("click", () => setCam(b.dataset.cam)));
+controls.addEventListener("start", () => {
+  if (controls.autoRotate) return; // keep 360 highlighted while orbiting? no — user grabbed
+  camTween = null;
+  camBtns.forEach(b => b.classList.remove("on"));
+});
+
+/* ---------- marker clicks ---------- */
+const ray = new THREE.Raycaster();
+ray.params.Points = { threshold: 0.05 };
+const mouse = new THREE.Vector2();
+let downXY = null;
+renderer.domElement.addEventListener("pointerdown", e => { downXY = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (!downXY) return;
+  const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]);
+  downXY = null;
+  if (moved > 6) return;
+  mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects(markerMeshes, false);
+  if (hits.length) goToP(hits[0].object.userData.pIndex);
+});
+
+/* ---------- keyboard ---------- */
+addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); playing ? stopPlay() : startPlay(); return; }
+  if (e.key >= "1" && e.key <= "9") goToP(parseInt(e.key) - 1);
+  if (e.key === "0") goToP(9);
+  if (e.key === "ArrowRight") { stopPlay(); tweenT = null; setT(tCur + 0.01); }
+  if (e.key === "ArrowLeft")  { stopPlay(); tweenT = null; setT(tCur - 0.01); }
+});
+
+/* ---------- resize ---------- */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- loop ---------- */
+const easeInOut = s => s < 0.5 ? 2*s*s : 1 - Math.pow(-2*s + 2, 2) / 2;
+let lastNow = performance.now();
+let holdUntil = 0;
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min((now - lastNow) / 1000, 0.05);
+  lastNow = now;
+
+  if (playing && now > holdUntil) {
+    // ease into motion from a standstill so the takeaway doesn't jolt
+    const ramp = Math.min((now - playStarted) / 450, 1);
+    const ease = 0.15 + 0.85 * ramp * ramp * (3 - 2 * ramp);
+    let t = tCur + (dt / DURATION) * speed * ease;
+    if (t >= 1) {
+      t = 1; holdUntil = now + 900; setT(t);
+      setTimeout(() => { if (playing) { setT(0); playStarted = performance.now(); } }, 880);
+    }
+    else setT(t);
+  }
+
+  if (tweenT) {
+    const s = Math.min((now - tweenT.start) / tweenT.dur, 1);
+    setT(tweenT.from + (tweenT.to - tweenT.from) * easeInOut(s));
+    if (s >= 1) tweenT = null;
+  }
+
+  if (camTween) {
+    const s = easeInOut(Math.min((now - camTween.start) / camTween.dur, 1));
+    camera.position.lerpVectors(camTween.p0, camTween.p1, s);
+    controls.target.lerpVectors(camTween.t0, camTween.t1, s);
+    if (s >= 1) camTween = null;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+setT(0);
+requestAnimationFrame(animate);
+
+/* ---------- position audit ----------
+   Checks every P position's defining invariants so an edit to one keyframe
+   (or a skeleton change) can't silently break the others. Run viewer.audit()
+   in the console after any change — every row should show issues: []. */
+function audit() {
+  const flex = (hip, knee, ank) => {
+    const a = hip.clone().sub(knee).normalize();
+    const b = ank.clone().sub(knee).normalize();
+    return Math.round(180 - Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1)) * 180 / Math.PI);
+  };
+  const climb = evalPose(0).chest.clone().sub(CFG.ball); climb.x = 0; climb.normalize();
+  const nGlass = new THREE.Vector3().crossVectors(V3(1, 0, 0), climb).normalize();
+  return KEYS.map((k, i) => {
+    const p = evalPose(k.t);
+    const armL = p.wristL.distanceTo(p.shL);
+    const armDir = p.wristL.clone().sub(p.shL).normalize();
+    const hinge = Math.round(180 - Math.acos(THREE.MathUtils.clamp(armDir.dot(p.shaftDir), -1, 1)) * 180 / Math.PI);
+    const issues = [];
+    if (i <= 7 && armL < 0.625) issues.push(`lead arm bent (${armL.toFixed(3)})`);
+    if (["P2", "P4", "P6", "P8"].includes(k.p) && Math.abs(p.shaftDir.y) > 0.16)
+      issues.push("shaft not parallel to ground");
+    if (["P3", "P5"].includes(k.p)) {
+      if (Math.abs(p.wristL.y - p.shL.y) > 0.07) issues.push("lead arm not parallel to ground");
+      const butt = p.shaftDir.clone().negate();
+      if (butt.y < -0.2) {
+        const t = (0 - p.grip.y) / butt.y;
+        const z = p.grip.z + butt.z * t;
+        if (Math.abs(z - CFG.ball.z) > 0.25) issues.push("butt not pointing at target line");
+      }
+    }
+    // (P1 exempt: the clubhead rests at the ball, exactly where the glass meets the ground)
+    if (i >= 1 && i <= 3 && p.head.clone().sub(CFG.ball).dot(nGlass) > 0.03)
+      issues.push("clubhead breaks Hogan's glass");
+    return { p: k.p, hinge, arm: +armL.toFixed(3),
+             kneeL: flex(p.hipL, p.kneeL, p.ankL), kneeR: flex(p.hipR, p.kneeR, p.ankR), issues };
+  });
+}
+
+// expose for external driving / debugging
+window.viewer = { setT, goToP, setCam, evalPose, audit, KEYS };
+</script>
+</body>
+</html>
