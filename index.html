@@ -760,7 +760,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe9ebee);
 scene.fog = new THREE.Fog(0xe9ebee, 9, 20);
 
-const camera = new THREE.PerspectiveCamera(33, innerWidth / innerHeight, 0.1, 60);
+const camera = new THREE.PerspectiveCamera(33, innerWidth / innerHeight, 0.1, 400);
 camera.position.set(0.35, 0.95, 7.2);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -794,7 +794,7 @@ scene.add(rim2);
 
 /* ---------- ground ---------- */
 const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(11, 64),
+  new THREE.CircleGeometry(150, 64),
   new THREE.MeshStandardMaterial({ color: 0xe3e6ea, roughness: 0.95 })
 );
 floor.rotation.x = -Math.PI / 2;
@@ -825,6 +825,7 @@ const ball = new THREE.Mesh(new THREE.SphereGeometry(0.030, 24, 18),
   new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
 ball.position.copy(CFG.ball).add(V3(0.075, 0, 0)); // just ahead of the resting clubhead
 ball.castShadow = true;
+ball.material.fog = false; // stays visible flying into the haze
 scene.add(ball);
 const tee = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, CFG.ball.y, 8),
   new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 }));
@@ -985,6 +986,60 @@ function buildMarkers() {
 }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(buildMarkers);
 else buildMarkers();
+
+/* ---------- ball flight + shot tracer ----------
+   The stretch of timeline after impact (t=0.585..1) doubles as the flight
+   clock: carry with a baby draw, two bounces, and rollout. The trace is a
+   fog-free tube revealed progressively — TV shot-tracer style. */
+const T_IMPACT = KEYS.find(k => k.p === "P7").t;
+const ballStart = CFG.ball.clone().add(V3(0.075, 0, 0));
+const FLIGHT = { carry: 95, apex: 9, drawOut: 2.2, drawCurve: 5.0 };
+
+function flightPos(u, out) {
+  out = out || V3();
+  const x0 = ballStart.x, y0 = ballStart.y, z0 = ballStart.z, G = 0.03;
+  if (u <= 0) return out.set(x0, y0, z0);
+  if (u < 0.72) {            // carry
+    const sc = u / 0.72;
+    return out.set(
+      x0 + FLIGHT.carry * sc,
+      Math.max(y0 + 4 * FLIGHT.apex * sc * (1 - sc), G),
+      z0 + FLIGHT.drawOut * sc - FLIGHT.drawCurve * sc * sc);
+  }
+  const zEnd = z0 + FLIGHT.drawOut - FLIGHT.drawCurve;
+  if (u < 0.82) {            // first bounce
+    const sc = (u - 0.72) / 0.10;
+    return out.set(x0 + FLIGHT.carry + 8 * sc, G + 4 * 1.6 * sc * (1 - sc), zEnd - 0.15 * sc);
+  }
+  if (u < 0.90) {            // second bounce
+    const sc = (u - 0.82) / 0.08;
+    return out.set(x0 + FLIGHT.carry + 8 + 5 * sc, G + 4 * 0.45 * sc * (1 - sc), zEnd - 0.15 - 0.1 * sc);
+  }
+  const sc = (u - 0.90) / 0.10;  // rollout, easing to rest
+  const e = 1 - (1 - sc) * (1 - sc);
+  return out.set(x0 + FLIGHT.carry + 13 + 5 * e, G, zEnd - 0.25 - 0.05 * e);
+}
+
+const TRACE_SEGS = 240;
+const tracer = (() => {
+  const pts = Array.from({ length: TRACE_SEGS + 1 }, (_, i) => flightPos(i / TRACE_SEGS));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geo = new THREE.TubeGeometry(curve, TRACE_SEGS, 0.022, 6, false);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff5a2a, transparent: true, opacity: 0.9,
+    fog: false, depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.visible = false;
+  scene.add(mesh);
+  const perSeg = geo.index.count / TRACE_SEGS;
+  return { mesh, perSeg };
+})();
+
+function updateBallFlight(t) {
+  const u = t <= T_IMPACT ? 0 : (t - T_IMPACT) / (1 - T_IMPACT);
+  flightPos(u, ball.position);
+  tracer.mesh.visible = u > 0.004;
+  tracer.mesh.geometry.setDrawRange(0, Math.floor(u * TRACE_SEGS) * tracer.perSeg);
+}
 
 /* ---------- the golfer: glossy mocap avatar (Gears-style) ---------- */
 const suitMat  = new THREE.MeshPhysicalMaterial({ color: 0xf4f5f7, roughness: 0.38, metalness: 0.0,
@@ -1198,6 +1253,7 @@ function setT(t) {
   tCur = THREE.MathUtils.clamp(t, 0, 1);
   const pose = evalPose(tCur);
   applyPose(pose);
+  updateBallFlight(tCur);
   // classic hinge metric: angle between the lead arm line and the shaft
   // (~180° = fully released/straight, ~90° = fully hinged)
   const armDir = pose.wristL.clone().sub(pose.shL).normalize();
